@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import csv
 
 # Define the directory containing the CSV files
 input_path = r"C:\Pricer\PRICERFILES"
@@ -35,20 +36,25 @@ for file_name in os.listdir(input_path):
         df.loc[condition, " ScmKne"] += df.loc[condition, " DepositMhr"]
 
         # Columns that should be quoted
-        quoted_columns = [" PrtNm", " MivzaNm", " SmallComments", " MivzaTitle"]
+        quoted_columns = [" PrtNm", " SmallComments", " MivzaTitle"]
 
         # Enclose values in quotes or keep them empty quotes if they are null/empty
         for col in quoted_columns:
             if col in df.columns:
                 df[col] = df[col].apply(lambda x: f'"{x}"' if pd.notnull(x) else '""')
 
-        # Write back to the original CSV file without applying any extra quoting
-        # Specify quoting behavior for only the individual columns that might contain special characters
+        # Format DepositMhr and DepositQty to two decimal places
+        for col in [" DepositMhr", " DepositQty"]:
+            if col in df.columns:
+                # Ensure the numeric value is formatted as a string with two decimal places
+                df[col] = df[col].apply(lambda x: f"{x:.2f}")
+
+        # Write back to the original CSV file
         df.to_csv(
             file_path,
             index=False,
             encoding="utf-8-sig",
-            quoting=1,  # QUOTE_MINIMAL (1) to prevent quoting on other fields
+            quoting=csv.QUOTE_NONE,  # Ensures no automatic quoting by pandas
             quotechar='"',  # Specify the character to use for quoting
             escapechar="\\",
         )  # Escape character for special cases if needed
