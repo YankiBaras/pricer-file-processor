@@ -1,15 +1,27 @@
 import pandas as pd
 import os
 import csv
+import shutil
+
 
 # Define the directory containing the CSV files
 input_path = r"C:\Pricer\PRICERFILES"
+backup_path = r"C:\Pricer\FileBackup"
+
+# Ensure the backup directory exists
+os.makedirs(backup_path, exist_ok=True)
 
 # Process each CSV file in the input directory
 for file_name in os.listdir(input_path):
     if file_name.endswith(".csv"):
-        # Read the CSV file, specifying dtype as string for safety
+        # Full file paths
         file_path = os.path.join(input_path, file_name)
+        backup_file_path = os.path.join(backup_path, file_name)
+
+        # Backup the original CSV file
+        shutil.copy(file_path, backup_file_path)
+
+        # Read the CSV file, specifying dtype as string for safety
         df = pd.read_csv(file_path, dtype=str, low_memory=False)
 
         # Print the columns of the dataframe for debugging purposes
@@ -44,7 +56,7 @@ for file_name in os.listdir(input_path):
                 df[col] = df[col].apply(lambda x: f'"{x}"' if pd.notnull(x) else '""')
 
         # Format DepositMhr and DepositQty to two decimal places
-        for col in [" DepositMhr", " DepositQty"]:
+        for col in numeric_cols:
             if col in df.columns:
                 # Ensure the numeric value is formatted as a string with two decimal places
                 df[col] = df[col].apply(lambda x: f"{x:.2f}")
