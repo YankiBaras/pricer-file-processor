@@ -48,43 +48,40 @@ for file_name in os.listdir(input_path):
         # Handle NaN values in numeric columns to ensure calculations work correctly
         df[numeric_cols] = df[numeric_cols].fillna(0)
 
-        # Perform calculations
-        modified_rows = []  # List to keep track of modified rows
+        # Initialize set to store modified row indices
+        modified_rows = set()
 
+        # Perform calculations
+        # Check modifications directly
         if " PrtMhr" in df and " DepositMhr" in df and " DepositQty" in df:
-            original_prt_mhr = df[" PrtMhr"].copy()
+            pre_calc = df[" PrtMhr"].copy()
             df[" PrtMhr"] += df[" DepositMhr"] * df[" DepositQty"]
-            modified_rows.extend(df[df[" PrtMhr"] != original_prt_mhr].index.tolist())
+            modified_rows.update(df.index[df[" PrtMhr"] != pre_calc])
 
         if " ScmKne" in df and " CmtKne" in df:
-            original_scm_kne = df[" ScmKne"].copy()
+            pre_calc = df[" ScmKne"].copy()
             df[" ScmKne"] += df[" DepositMhr"] * df[" DepositQty"] * df[" CmtKne"]
-            modified_rows.extend(df[df[" ScmKne"] != original_scm_kne].index.tolist())
+            modified_rows.update(df.index[df[" ScmKne"] != pre_calc])
 
         # Additional condition: if DepositQty == 0 and DepositMhr > 0
         if " DepositQty" in df and " DepositMhr" in df:
             condition = (df[" DepositQty"] == 0) & (df[" DepositMhr"] > 0)
             if " PrtMhr" in df and " ScmKne" in df:
-                original_prt_mhr = df.loc[condition, " PrtMhr"].copy()
-                original_scm_kne = df.loc[condition, " ScmKne"].copy()
+                pre_calc_prt = df.loc[condition, " PrtMhr"].copy()
+                pre_calc_scm = df.loc[condition, " ScmKne"].copy()
+
                 df.loc[condition, " PrtMhr"] += df.loc[condition, " DepositMhr"]
                 df.loc[condition, " ScmKne"] += df.loc[condition, " DepositMhr"]
-                modified_rows.extend(
-                    df[df[" PrtMhr"] != original_prt_mhr].index.tolist()
-                )
-                modified_rows.extend(
-                    df[df[" ScmKne"] != original_scm_kne].index.tolist()
-                )
 
         # Log the modified rows
         if modified_rows:
-            unique_modified_rows = sorted(set(modified_rows))
-            logging.info(f"Modified rows in file {file_name}: {unique_modified_rows}")
+            logging.info(f"Modified rows in file {file_name}: {sorted(modified_rows)}")
 
-        # Format all numeric columns to two decimal places
+        # Format DepositMhr and DepositQty to two decimal places
         for col in numeric_cols:
             if col in df.columns:
-                df[col] = df[col].apply(lambda x: f"{x:.2f}")
+                df[col] = df[col].apply(lambda x: f"{float(x):.2f}" if pd.notnull(x) else "0.00")
+
 
         # Columns that should be quoted
         quoted_columns = [" PrtNm", " SmallComments", " MivzaTitle"]
