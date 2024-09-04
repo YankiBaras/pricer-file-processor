@@ -9,20 +9,23 @@ def process_csv_file(file_path, backup_path):
     """Function to process a given CSV file."""
     backup_file_path = os.path.join(backup_path, os.path.basename(file_path))
 
-    # Try to back up the original CSV file and handle errors without stopping the script
-    try:
-        shutil.copy(file_path, backup_file_path)
-    except PermissionError as e:
-        # Log a warning if the backup process fails but continue processing
-        print(
-            f"Warning: PermissionError for file '{file_path}': {e}. Continuing with processing."
-        )
+    # # Backup the original CSV file with error handling
+    # try:
+    #     shutil.copy(file_path, backup_file_path)
+    # except PermissionError as e:
+    #     print(
+    #         f"PermissionError: {e} for file: {file_path}. Continuing with processing."
+    #     )
 
     # Read the CSV file, specifying dtype as string for safety
     df = pd.read_csv(file_path, dtype=str, low_memory=False)
 
-    # Print the columns of the dataframe for debugging purposes
-    print("Columns in the CSV:", df.columns)
+    # Debug: Print the DataFrame before applying conditions
+    print("DataFrame before applying conditions:")
+    print(df.head())
+
+    # Debug: Print column names to verify
+    print("Columns in DataFrame:", df.columns.tolist())
 
     # Normalize column names by stripping whitespace
     df.columns = df.columns.str.strip()
@@ -46,19 +49,32 @@ def process_csv_file(file_path, backup_path):
 
     # Apply the specified conditions and processing
     condition = (
-        (df.get("PrtSwShakil", "") == "1")
+        (df.get("PrtSwShakil", 0) == "1")
         & (df.get("MivzaDetails", "") == "GENERIC-DISCOUNT")
         & (df.get("MinimumQty", 0) > 0)
     )
 
+    # Debug: Evaluate conditions manually
+    print("Evaluating conditions:")
+    print("PrtSwShakil condition:", df.get("PrtSwShakil", 0) == "1")
+    print("MivzaDetails condition:", df.get("MivzaDetails", "") == "GENERIC-DISCOUNT")
+    print("MinimumQty condition:", df.get("MinimumQty", 0) > 0)
+
+    # Debug: Print the condition array
+    print("Condition array:")
+    print(condition)
+
+    # Check how many rows satisfy the condition
+    print("Condition True values count:", condition.sum())
+
     # Step 1: Copy MinimumQty to CmtKne using get()
-    df.loc[condition, "CmtKne"] = df["MinimumQty"]
+    df.loc[condition, "CmtKne"] = df.get("MinimumQty", 0)
 
     # Step 2: Modify CmtKne when MinimumQty is greater than 0 and less than 1
-    df.loc[(condition) & (df["MinimumQty"] < 1), "CmtKne"] *= 1000
+    df.loc[(condition) & (df.get("MinimumQty", 0) < 1), "CmtKne"] *= 1000
 
     # Step 3: Update ScmKne based on MinimumQty
-    df.loc[condition, "ScmKne"] = df["ScmKne"] * df["MinimumQty"]
+    df.loc[condition, "ScmKne"] = df.get("ScmKne", 0) * df.get("MinimumQty", 0)
 
     # Rounding logic for ScmKne AFTER Step 3
     df.loc[condition, "ScmKne"] = df.loc[condition, "ScmKne"].apply(
@@ -69,28 +85,6 @@ def process_csv_file(file_path, backup_path):
             else np.floor((x % 1) * 10) / 10
         )
     )
-
-    # Step 4: Change MivzaDetails to 'YFOR' if MinimumQty > 0
-    df.loc[df["MinimumQty"] > 0, "MivzaDetails"] = "YFOR"
-
-    # Continue with previous calculations using new logic
-    for index, row in df.iterrows():
-        if float(row.get("DepositQty", 0)) > 0:
-            # If DepositQty > 0
-            df.at[index, "PrtMhr"] += float(row.get("DepositMhr", 0)) * float(
-                row.get("DepositQty", 0)
-            )
-            df.at[index, "ScmKne"] += (
-                float(row.get("DepositMhr", 0))
-                * float(row.get("DepositQty", 0))
-                * float(row.get("CmtKne", 0))
-            )
-        else:
-            # If DepositQty == 0
-            df.at[index, "PrtMhr"] += float(row.get("DepositMhr", 0))
-            df.at[index, "ScmKne"] += float(row.get("CmtKne", 0)) * float(
-                row.get("DepositMhr", 0)
-            )
 
     # Format all numeric columns to two decimal places
     for col in numeric_cols:
